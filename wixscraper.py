@@ -16,50 +16,56 @@ async def scroll_to_bottom(page):
     await asyncio.sleep(1)
 
 # Only use this function in compliance with Wix Terms of Service. 
+# Only use this function in compliance with Wix Terms of Service. 
 async def delete_wix(page):
-    # Delete the wix header
-    # with id WIX_ADS
+    # Delete the wix header with id WIX_ADS
     await page.evaluate('''() => {
         const element = document.getElementById('WIX_ADS');
-        element.parentNode.removeChild(element);
+        if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
     }''')
 
-    # Edit the in-line CSS defined in <style> tag
-    # delete any string "--wix-ads"
+    # Edit in-line CSS defined in <style> tag, remove any string "--wix-ads"
     await page.evaluate('''() => {
         const elements = document.querySelectorAll('style');
         for (const element of elements) {
-            if (element.innerText.includes('--wix-ads')) {
+            if (element && typeof element.innerText === 'string' && element.innerText.includes('--wix-ads')) {
                 element.innerText = element.innerText.replace('--wix-ads', '');
             }
         }
     }''')
 
-    # delete any string "Made with Wix"
+    # Delete any span that includes "Made with Wix"
     await page.evaluate('''() => {
         const elements = document.querySelectorAll('span');
         for (const element of elements) {
-            if (element.innerText.includes('Made with Wix')) {
+            if (element && typeof element.innerText === 'string' && element.innerText.includes('Made with Wix') && element.parentNode) {
                 element.parentNode.removeChild(element);
             }
         }
     }''')
 
-    # Remove all scripts 
+    # Remove all <script> tags
     await page.evaluate('''() => {
         const elements = document.querySelectorAll('script');
         for (const element of elements) {
-            element.parentNode.removeChild(element);
+            if (element && element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
         }
     }''')
 
-    # Remove all link tags
+    # Remove all <link> tags
     await page.evaluate('''() => {
         const elements = document.querySelectorAll('link');
         for (const element of elements) {
-            element.parentNode.removeChild(element);
+            if (element && element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
         }
     }''')
+
 
 async def fix_gallery(page):
 
@@ -421,7 +427,14 @@ async def makeFontsLocal(page, hostname, forceDownloadAgain):
         os.makedirs(hostname + '/fonts')
 
     # Download all fonts, which are parastorage links
-    fontLinks = await page.querySelectorAllEval('style', 'nodes => nodes.map(n => n.innerText.match(/url\\((.*?)\\)/g)).flat()')
+    fontLinks = await page.querySelectorAllEval(
+    'style',
+    '''nodes => nodes
+        .map(n => typeof n.innerText === 'string' ? n.innerText.match(/url\\((.*?)\\)/g) : [])
+        .flat()
+        .filter(x => x)'''
+)
+
 
     # Get all url("//static.parastorage.com...") links
     fontLinks = [link for link in fontLinks if link is not None and 'static.parastorage.com' in link]
@@ -454,27 +467,25 @@ async def makeFontsLocal(page, hostname, forceDownloadAgain):
     await page.evaluate('''() => {
         const elements = document.querySelectorAll('style');
         for (const element of elements) {
-            if (element.innerText.includes('static.parastorage.com')) {
-                // Get all occurences of url("//static.parastorage.com...") links
-                var fontLinks = element.innerText.match(/url\\((.*?)\\)/g);
-
-                for (const link of fontLinks) {
-                    // Only get if the link is a font
-                    // in javascript
-                    if(link.includes('woff') || link.includes('woff2') || link.includes('ttf') || link.includes('eot') || link.includes('otf') || link.includes('svg')) {
-                            
-                        // Get the font name
-                        // in javascript, not using split
-                        var fontName = link.substring(link.lastIndexOf('/') + 1, link.lastIndexOf(')')); 
-
-                        // Redo the src link
-                        element.innerText = element.innerText.replace(link, 'url("/fonts/' + fontName + '")');
+            if (element && typeof element.innerText === 'string' && element.innerText.includes('static.parastorage.com')) {
+                const fontLinks = element.innerText.match(/url\\((.*?)\\)/g);
+                if (Array.isArray(fontLinks)) {
+                    for (const link of fontLinks) {
+                        if (
+                            link.includes('woff') || link.includes('woff2') ||
+                            link.includes('ttf') || link.includes('eot') ||
+                            link.includes('otf') || link.includes('svg')
+                        ) {
+                            let fontName = link.substring(link.lastIndexOf('/') + 1, link.lastIndexOf(')'))
+                                .split('?')[0].split('#')[0].replace(/\"/g, '');
+                            element.innerText = element.innerText.replace(link, 'url(\"/fonts/' + fontName + '\")');
+                        }
                     }
                 }
-
             }
         }
     }''')
+
 
 async def fix_page(page, wait, hostname, blockPrimaryFolder, darkWebsite, forceDownloadAgain, metatags, mapData):
     
@@ -502,8 +513,8 @@ async def fix_page(page, wait, hostname, blockPrimaryFolder, darkWebsite, forceD
     await page.evaluate('''() => {
         const elements = document.querySelectorAll('style');
         for (const element of elements) {
-            if (element.innerText.includes('@font-face')) {
-                element.innerText = element.innerText.replace('@font-face {', '@font-face { font-display: swap;');
+            if (element && typeof element.innerText === 'string' && element.innerText.includes('--wix-ads')) {
+                element.innerText = element.innerText.replace('--wix-ads', '');
             }
         }
     }''')
